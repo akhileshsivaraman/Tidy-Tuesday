@@ -1,0 +1,263 @@
+---
+title: "Alone"
+output:
+  html_document:
+    theme: cerulean
+    highlights: tango
+---
+
+```{=html}
+<style type="text/css">
+   .main-container {max-width: 95%;}
+   .row {display: flex;}
+   .column {flex: 40%;}
+</style>
+```
+Acknowledgement: the data for this Tidy Tuesday comes from Dan Oehm (<https://github.com/doehm/alone>)
+
+```{r echo=FALSE}
+knitr::opts_chunk$set(echo = FALSE, include = FALSE)
+```
+
+```{r}
+#---- load libraries ----
+library(tidyverse)
+library(tidytuesdayR)
+library(ggplot2)
+library(plotly)
+library(forecast)
+library(knitr)
+
+
+#---- load data ----
+data <- tt_load(2023, 4)
+survivalists <- data$survivalists
+loadouts <- data$loadouts
+episode <- data$episodes
+seasons <- data$seasons
+
+#---- colour palette ----
+colourPalette <- c("paleturquoise3", "firebrick", "steelblue2", "limegreen", "darkorchid4", "coral", "goldenrod2", "darkseagreen3", "sienna")
+```
+
+### How has viewership changed over the seasons
+```{r include=TRUE, fig.cap="Number of viewers per episode of Survivor"}
+episodeViewershipPlot <- ggplot(episode %>%
+                                  drop_na(viewers)) +
+  geom_point(aes(episode_number_overall, viewers, colour = as.character(season))) +
+  geom_smooth(aes(episode_number_overall, viewers), method = "loess", alpha = 0.3, colour = "tan", se = F) +
+  theme_classic() +
+  xlab("Episode number") +
+  ylab("Viewers in the US (millions)") +
+  scale_discrete_manual(aesthetics = "colour", values = colourPalette, name = "Season")
+
+ggplotly(episodeViewershipPlot)
+```
+Between seasons 1 and 6, viewership of Survivor generally trended downwards. Following an all-time low in viewership in season 6 (s6 ep 9 is the only episode in the series' history to have fewer than 1 million US viewers!), the show has experienced a rebound to levels not seen since season 5 but it's a long way to go before it scales the heights of the season 1 finale. \
+(*The plot above is interactive!*)
+```{r}
+meanViewersBySeason <- episode %>%
+  group_by(season) %>%
+  summarise(mean_viewership = mean(viewers, na.rm = T)) %>%
+  ungroup() %>%
+  drop_na(mean_viewership)
+```
+Interestingly, seasons 6 & 7, the two seasons with the lowest average number of viewers per episode, were both held at Great Slave Lake in Canada.
+```{r warning=FALSE, include=TRUE, fig.cap= "Average viewership per episode over the first 8 seasons of Survivor in the US"}
+ggplot(meanViewersBySeason) +
+  geom_point(aes(as.character(season), mean_viewership, colour = as.character(season)), size = 4) +
+  geom_path(aes(season, mean_viewership), alpha = 0.3) +
+  theme_classic() + 
+  scale_discrete_manual(aesthetics = "colour", values = colourPalette) +
+  theme(legend.position = "none") +
+  xlab("Season") +
+  ylab("Average number of viewers in the US (millions)")
+  
+```
+```{r warning=FALSE, include=TRUE, fig.cap="Viewership over the first 8 seasons of Survivor in the US"}
+ggplot(episode) +
+  geom_boxplot(aes(as.character(season), viewers, colour = as.character(season))) +
+  geom_point(aes(season, viewers, colour = as.character(season)), position = "jitter", shape = 4, alpha = 0.8) +
+  theme_classic() +
+  scale_discrete_manual(aesthetics = "colour", values = colourPalette) +
+  theme(legend.position = "none") +
+  xlab("Season") +
+  ylab("Number of viewers in the US (millions)")
+```
+\
+\
+
+### Why did viewership fall over the first 6 seasons
+#### Perhaps the quality of the show declined?
+```{r warning=FALSE}
+meanSeasonRating <- episode %>%
+  filter(season == c(1,2,3,4,5,6)) %>%
+  group_by(season) %>%
+  summarise(mean_rating = mean(imdb_rating, na.rm = T)) %>%
+  ungroup() 
+```
+No! The IMDB rating for Survivor over the first 6 seasons were more or less the same. In fact, the most highly rated season was season 6, despite it having such a low viewership. (This is assuming the IMDB rating is a reliable measure of quality!)
+```{r include=TRUE, fig.cap="Average IMDB ratings for episodes in the first 6 seasons of Survivor"}
+ggplot(meanSeasonRating) +
+  geom_col(aes(as.character(season), mean_rating, fill = as.character(season))) +
+  theme_classic() +
+  scale_discrete_manual(aesthetics = "fill", values = colourPalette) +
+  xlab("Season") +
+  ylab("Average IMDB rating") +
+  theme(legend.position = "none")
+```
+\
+\
+
+#### Perhaps the show became less exciting/dangerous?
+Assuming the number of survivalists is a measure of how exciting a season was, viewership may have declined because the show became less exciting to watch as contestants found themselves in less perilous situations.
+```{r}
+evacuatedBySeason <- survivalists %>%
+  filter(medically_evacuated == TRUE) %>%
+  group_by(season) %>%
+  count(medically_evacuated) %>%
+  rename("Number of medically evacuated survivalists" = n) %>%
+  select(c("season", "Number of medically evacuated survivalists")) %>%
+  inner_join(meanViewersBySeason, "season") %>%
+  inner_join(seasons, "season") %>%
+  mutate("Percentage evacuated" = `Number of medically evacuated survivalists`/n_survivors*100)
+```
+It does not seem to be the case that more survivalists being medically evacuated is correlated with a higher viewership. This makes sense as the IMDB ratings across seasons are very similar.\
+\
+If anything, there seems to be a possibility that having fewer survivalists being medically evacuated is correlated with a higher viewership.
+```{r include=TRUE, out.width=c("50%","50%"), fig.show="hold", fig.cap="Number and percentage of medically evacuated survivalists and average viewership over 6 seasons of Survivor"}
+ggplot(evacuatedBySeason) +
+  geom_point(aes(season, `Number of medically evacuated survivalists`, colour = as.character(season))) +
+  geom_path(aes(season, mean_viewership^(1/0.3)), alpha = 0.3) +
+  theme_classic() +
+  scale_discrete_manual(aesthetics = "colour", values = colourPalette) +
+  xlab("Season") +
+  scale_y_continuous(sec.axis = sec_axis(~.^0.3, name = "Average number of viewers in the US (millions)")) +
+  theme(legend.position = "none")
+
+ggplot(evacuatedBySeason) +
+  geom_point(aes(season, `Percentage evacuated`, colour = as.character(season))) +
+  geom_path(aes(season, mean_viewership*50), alpha = 0.3) +
+  theme_classic() +
+  scale_discrete_manual(aesthetics = "colour", values = colourPalette) +
+  xlab("Season") +
+  scale_y_continuous(sec.axis = sec_axis(~./50, name = "Average number of viewers in the US (millions)")) +
+  theme(legend.position = "none")
+
+```
+```{r}
+notEvacuatedBySeason <- survivalists %>%
+  filter(medically_evacuated == FALSE) %>%
+  group_by(season) %>%
+  count(medically_evacuated) %>%
+  rename("Number of survivalists not medically evacuated" = n) %>%
+  select(c("season", "Number of survivalists not medically evacuated")) %>%
+  inner_join(meanViewersBySeason, "season") %>%
+  inner_join(seasons, "season") %>%
+  mutate("Percentage not evacuated" = `Number of survivalists not medically evacuated`/n_survivors*100)
+```
+\
+\
+
+It does indeed appear that there could be some correlation between survivalists not being medically evacuated and viewership.
+```{r include=TRUE, out.width=c("50%","50%"), fig.show="hold", fig.cap="Number and percentage of survivalists NOT medically evacuated and average viewership over 6 seasons of Survivor"}
+ggplot(notEvacuatedBySeason) +
+  geom_point(aes(season, `Number of survivalists not medically evacuated`, colour = as.character(season))) +
+  geom_path(aes(season, mean_viewership^(1/0.25)), alpha = 0.3) +
+  theme_classic() +
+  scale_discrete_manual(aesthetics = "colour", values = colourPalette) +
+  xlab("Season") +
+  scale_y_continuous(sec.axis = sec_axis(~.^0.25, name = "Average number of viewers in the US (millions)")) +
+  theme(legend.position = "none")
+
+ggplot(notEvacuatedBySeason) +
+  geom_point(aes(season, `Percentage not evacuated`, colour = as.character(season))) +
+  geom_path(aes(season, mean_viewership*50), alpha = 0.3) +
+  theme_classic() +
+  scale_discrete_manual(aesthetics = "colour", values = colourPalette) +
+  xlab("Season") +
+  scale_y_continuous(sec.axis = sec_axis(~./50, name = "Average number of viewers in the US (millions)")) +
+  theme(legend.position = "none")
+
+```
+\
+Running Pearson's correlation test indicates that the positive correlation between viewership and surivivalists not being medically evacuated is significant.
+```{r include=TRUE}
+cor.test(notEvacuatedBySeason$mean_viewership, notEvacuatedBySeason$`Number of survivalists not medically evacuated`)
+```
+```{r include=TRUE}
+cor.test(notEvacuatedBySeason$mean_viewership, notEvacuatedBySeason$`Percentage not evacuated`)
+```
+Could it be that viewers prefer the show when the health of participants is in less danger?  
+
+\
+\
+
+## Predicting how many viewers season 10 might get
+```{r}
+episodeViewership <- episode %>%
+  select(c("season", "episode_number_overall", "viewers")) %>%
+  drop_na("viewers")
+
+tsEpisodeViewership <- ts(episodeViewership$viewers, frequency = 11) # there are generally 11 episodes per season
+```
+```{r include=TRUE, fig.cap="Number of viewers per episode of Survivor"}
+ggplot(episodeViewership) +
+  geom_path(aes(episode_number_overall, viewers)) +
+  theme_classic() +
+  xlab("Episode number") +
+  ylab("Viewers in the US (millions)")
+```
+```{r}
+tsDecomposedEpisodeViewership <- decompose(tsEpisodeViewership)
+```
+```{r include=TRUE}
+plot(tsDecomposedEpisodeViewership)
+```
+
+There appears to be a significant autocorrelation for 13 episodes suggesting that a high number of viewers for episode x will likely see a high number of viewers for episode x+13.
+```{r include=TRUE, fig.cap="Autocorrelation of viewership"}
+autocorEpisodeViewership <- acf(tsEpisodeViewership) # each step in the lag represents an episode
+```
+\
+However, as demonstrated by the partial autocorrelation, there is likely noise associated with correlations from previous episodes driving up the autocorrelation coefficient at each lag. Before fitting a model, the data needs to be transformed so that the mean and variance are stationary.
+```{r include=TRUE, fig.cap="Partial autocorrelation of viewership"}
+pacf(tsEpisodeViewership)
+```
+```{r}
+# transforming the time series before modelling by diffing
+ndiffs(tsEpisodeViewership) # calculate the number of diffs to carry out
+stationarytsEpisodeViewership <- diff(tsEpisodeViewership, 1)
+plot(stationarytsEpisodeViewership)
+```
+\
+Following transformation, we can apply an ARIMA model to the data and predict how many viewers the next season of Survivor will obtain!
+```{r}
+# auto regressive integrated moving average
+modelEpisodeViewership <- auto.arima(y = tsEpisodeViewership)
+modelEpisodeViewership
+
+# check if this is a good model
+acf(modelEpisodeViewership$residuals)
+pacf(modelEpisodeViewership$residuals)
+
+# forecast for the next season with a 30% confidence level
+predictionEpisodeViewership <- forecast(modelEpisodeViewership, h = 11, level = 30)
+```
+```{r include=TRUE}
+plot(predictionEpisodeViewership,
+     main = "Forecast of viewership for season 10 of Survivor",
+     xlab = "Season",
+     ylab = "Number of viewers in the US (millions)",
+     showgap = F, shadecols = "#F9DB9F", fcol = "#D4910C", col = "#734F07", flty = 6, xaxt = "n")
+axis(1, at = c(1:10)/1.065089, labels = 1:10) # divide by 1.065089 to re-adjust the x-axis as not every season has 12 episodes. 1.065089 because there have been 9 seasons and there are 83 points in the time series used to create the model
+```
+```{r}
+meanSeason10 <- mean(predictionEpisodeViewership$mean)
+predictionSeason10 <- cbind(c(1:11), predictionEpisodeViewership$mean) %>%
+  `colnames<-`(c("Episode", "Predicted number of viewers in the US (millions)"))
+```
+```{r include=TRUE}
+kable(predictionSeason10)
+```
+

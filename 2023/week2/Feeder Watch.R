@@ -62,204 +62,38 @@ ggplot(top10Species) +
 # ---- where were those top 10 species observed? ----
 world <- ne_countries(scale = "medium", returnclass = "sf")
 
-for (i in 1:nrow(top10Species)) {
-  assign(paste0("species", i), top10Species$`Species Name`[i])
-} # assign species names to a series of variables in the format species1, species2, etc
+# filter for reviewed and valid data
+reviewedData <- speciesData %>%
+  filter(reviewed == 1,
+         valid == 1)
 
+# create colour palette
 colourPalette <- get_palette(palette = "jco", 10)
 
-# Spinus pinus
-locationSpecies1 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species1)
+# function to find a species' location
+find_species <- function(species) {
+  filter(reviewedData, scientific_name == species)
+}
 
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies1, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[1], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed") +
-  ggtitle("Sites where Spinus pinus has been observed")
-
-# Acanthis flammea
-locationSpecies2 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species2)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies2, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[2], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed") +
-  ggtitle("Sites where Acanthis flammea has been observed")
-
-# Zenaida macroura
-locationSpecies3 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species3)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies3, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[3], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed")  +
-  ggtitle("Sites where Zenaida macroura has been observed")
+# function to plot the species' location
+plot_species <- function(species, location, colour_number) {
+  ggplot(data = world) +
+    geom_sf(fill = "white") +
+    geom_point(data = location, aes(longitude, latitude, size = how_many), shape = 21, alpha = 0.4, fill = colourPalette[colour_number]) +
+    coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
+    theme(panel.background = element_rect(fill = "white"),
+          axis.title = element_blank(),
+          axis.text = element_blank(),
+          axis.ticks = element_blank(),
+          legend.position = c(0.1, 0.15),
+          legend.key = element_rect(fill = "white")) +
+    labs(size = "Number observed") +
+    ggtitle(paste0("Sites where ", species, " has been observed"))
+}
 
 
-# Cyanocitta cristata
-locationSpecies4 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species4)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies4, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[4], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed")  +
-  ggtitle("Sites where Cyanocitta cristata has been observed")
-
-
-# Cardinalis cardinalis
-locationSpecies5 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species5)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies5, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[5], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed")  +
-  ggtitle("Sites where Cardinalis cardinalis has been observed")
-
-
-# Branta canadensis
-locationSpecies6 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species6)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies6, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[6], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed") +
-  ggtitle("Sites where Branta canadensis has been observed")
-
-# Haemorhous purpureus
-locationSpecies7 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species7)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies7, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[7], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed") +
-  ggtitle("Sites where Haemorhous purpureus has been observed")
-
-# Spinus tristis
-locationSpecies8 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species8)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies8, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[8], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed") +
-  ggtitle("Sites where Spinus tristis has been observed")
-
-# Haemorhous mexicanus
-locationSpecies9 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species9)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies9, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[9], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed") +
-  ggtitle("Sites where Haemorhous mexicanus has been observed")
-
-# Anas platyrhynchos
-locationSpecies10 <- speciesData %>%
-  filter(reviewed == 1,
-         valid == 1,
-         scientific_name == species10)
-
-ggplot(data = world) +
-  geom_sf(fill = "white") +
-  geom_point(data = locationSpecies10, aes(longitude, latitude, size = how_many), shape = 21, fill = colourPalette[10], alpha = 0.4) +
-  coord_sf(xlim = c(-150, -50), ylim = c(20, 70), expand = FALSE, clip = "on") +
-  theme(panel.background = element_rect(fill = "white"),
-        axis.title = element_blank(),
-        axis.text = element_blank(),
-        axis.ticks = element_blank(),
-        legend.position = c(0.1, 0.15),
-        legend.key = element_rect(fill = "white")) +
-  labs(size = "Number observed") +
-  ggtitle("Sites where Anas platyrhynchos has been observed")
-
-# see about doing an HTML or shiny app
-
+# plot data for all 10 species in a loop
+for(i in 1:nrow(top10Species)) {
+  locationSpecies <- find_species(top10Species$`Species Name`[i])
+  print(plot_species(top10Species$`Species Name`[i], locationSpecies, i))
+}

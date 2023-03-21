@@ -1,0 +1,114 @@
+---
+title: "European Drug Development"
+output:
+  html_document:
+    theme: paper
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, include = TRUE)
+```
+
+Acknowledgement: the data for this Tidy Tuesday comes from Miquel Anglada Girotto (<https://github.com/MiqG/EMA-Data-Scratching-with-RSelenium>)
+
+```{r include=FALSE}
+#---- load libraries ----
+library(tidyverse)
+library(tidytuesdayR)
+library(ggplot2)
+library(lubridate)
+
+drugs <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-03-14/drugs.csv')
+```
+
+# Therapeutic Areas
+## Which are the most common therapeutic areas?
+In the dataset, the column "therapeutic_areas" contains all the therapeutic areas for each drug with each area separated by a ";" so before counting the frequency of the therapeutic areas, we'll split that column up.
+```{r}
+#---- split therapeutic area ----
+drugs_therapeutic_areas <- drugs %>%
+  separate(therapeutic_area,
+           into = c("therapeutic_area1", "therapeutic_area2", "therapeutic_area3", "therapeutic_area4", "therapeutic_area5", "therapeutic_area6", "therapeutic_area7", "therapeutic_area8", "therapeutic_area9", "therapeutic_area10"),
+           sep = ";  ")
+# note: two of the drugs in the dataset are used in more than 10 therapeutic areas
+
+
+#---- count the frequency of the therapeutic areas ----
+therapeutic_areas <- drugs_therapeutic_areas |>
+  select(c("therapeutic_area1", "therapeutic_area2", "therapeutic_area3", "therapeutic_area4", "therapeutic_area5", "therapeutic_area6", "therapeutic_area7", "therapeutic_area8", "therapeutic_area9", "therapeutic_area10")) |>
+  as_vector() |>
+  unlist() |>
+  tibble() |>
+  na.omit()|>
+  `colnames<-`("therapeutic areas") |>
+  count(`therapeutic areas`) |>
+  `colnames<-`(c("therapeutic areas", "frequency"))
+
+# identify the top 10 most common therapeutic areas
+therapeutic_areas_top10 <- therapeutic_areas |>
+  arrange(desc(`frequency`)) |>
+  slice(1:10)
+
+ggplot(therapeutic_areas_top10) +
+  geom_col(aes(`therapeutic areas`, frequency), fill = "#31081f") +
+  theme_classic() +
+  scale_x_discrete(labels = function(`therapeutic areas`) str_wrap(`therapeutic areas`, width = 4))
+```
+\
+Unsurprisingly, the top 10 therapeutic areas is dominated by chronic conditions that require the continuous use of drugs and are subsequently highly lucrative areas for pharmaceutical companies.
+
+
+## Are drugs produced for the most common therapeutic areas generally generic?
+```{r}
+#---- function to identify drugs used for a therapeutic area ----
+identify_drugs <- function(therapeutic_area) {
+  drug_rows <- grep(pattern = therapeutic_area, x = drugs$therapeutic_area)
+  drug_tibble <- drugs[c(drug_rows),]
+}
+
+#---- identify the drugs for the top 10 therapeutic areas -----
+top10_list <- list()
+for (i in therapeutic_areas_top10$`therapeutic areas`){
+  top10_list[[i]] <- assign(paste0("drugs_for_", i), identify_drugs(i))
+}
+
+#---- count the number of generics used to treat the top 10 therapeutic areas ----
+generics_count_list <- list()
+for (i in 1:length(top10_list)){
+  generics_count_list[[i]] <- count(top10_list[[i]], generic, name = names(top10_list[i]))
+}
+generics_count <- generics_count_list |>
+  reduce(left_join, by = "generic") |>
+  pivot_longer(cols = c(2:11), 
+               names_to = "therapeutic area",
+               values_to = "frequency")
+
+ggplot(generics_count) +
+  geom_col(aes(`therapeutic area`, frequency, fill = generic)) +
+  theme_classic() +
+  scale_x_discrete(labels = function(`therapeutic areas`) str_wrap(`therapeutic areas`, width = 4)) +
+  scale_fill_manual(values = c("#1D2D44", "#FE7F2D"))
+
+```
+\
+No, except for myocardial infarction, the drugs used to treat the most common therapeutic areas are mainly not generics.
+
+
+## How has the development of drugs to treat Diabetes Mellitus developed over the last 28 years?
+Interestingly, there have been booms and busts in the authorisation of drugs used to Diabetes Mellitus over the last 28 years.
+```{r}
+#---- create tibble of diabetes drugs ----
+diabetes_rows <- grep(pattern = "Diabetes", x = drugs$therapeutic_area)
+diabetes_tibble <- drugs[c(diabetes_rows),]
+
+#---- group drugs by month and year ----
+diabetes_tibble_date <- diabetes_tibble |>
+  group_by(year = floor_date(marketing_authorisation_date, "year")) |>
+  count(year, name = "frequency")
+
+ggplot(diabetes_tibble_date) +
+  geom_point(aes(year, frequency), colour = "#31081f", size = 2) +
+  geom_path(aes(year, frequency), colour = "#31081f", linetype = 2) +
+  theme_classic()
+```
+

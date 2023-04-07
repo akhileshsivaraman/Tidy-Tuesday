@@ -4,6 +4,6 @@ My contribution to #tidytuesday, a data project run by the R4DS Online Learning 
 ## 2023
 <br>
 
-* week 2: Feeder Watch - https://htmlpreview.github.io/?https://github.com/akhileshsivaraman/Tidy-Tuesday/blob/main/2023/week2/Feeder-Watch.html
+* week 2: Feeder Watch - https://htmlpreview.github.io/?https://github.com/akhileshsivaraman/Tidy-Tuesday/blob/main/2023/week2/Feeder-Watch.html or download the app.R file in week2
 * week 4: Alone - https://htmlpreview.github.io/?https://github.com/akhileshsivaraman/Tidy-Tuesday/blob/main/2023/week4/Alone.html
 * week 11: European Drug Development - https://htmlpreview.github.io/?https://github.com/akhileshsivaraman/Tidy-Tuesday/blob/main/2023/week11/European-Drug-Development.html

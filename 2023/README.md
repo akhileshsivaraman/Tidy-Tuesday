@@ -14,6 +14,6 @@ Week 4 Preview
 
 Week 14 Preview
 <br>
-<img align="centre" src="week 14/Week 14 graph.png" width="500">
+<img align="centre" src="Week 14/Week 14 graph.png" width="500">
 <br>
 <hr>

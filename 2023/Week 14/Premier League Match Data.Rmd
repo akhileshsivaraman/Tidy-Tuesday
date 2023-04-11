@@ -1,0 +1,160 @@
+---
+title: "Premier League Match Data 2021-2022"
+output: 
+  html_document:
+    theme: paper
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, include = TRUE)
+```
+
+Acknowledgement: the data for this Tidy Tuesday comes from Evan Gower (https://www.kaggle.com/datasets/evangower/premier-league-match-data)
+
+```{r include=FALSE}
+#---- load libraries ----
+library(tidyverse)
+
+#---- load data ----
+data <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-04-04/soccer21-22.csv')
+```
+
+## Which referees officiate the most games?
+Across the whole season comprising 380 matches, 22 referees were used. 7 referees officiated more than 25 games in the 2021-2022 season. They were:
+
+* Anthony Taylor
+* Paul Tierney
+* Craig Pawson
+* Martin Atkinson
+* Mike Dean
+* Michael Oliver
+* Jon Moss
+
+The other 15 refereed 20 matches at most.
+
+```{r}
+referee_count <- data |>
+  count(Referee, name = "Matches Officiated") 
+```
+```{r}
+ggplot(referee_count) +
+  geom_col(aes(reorder(Referee, `Matches Officiated`), `Matches Officiated`), fill = "#401454") +
+  theme_classic() +
+  xlab("Referee") +
+  scale_y_continuous(n.breaks = 10) +
+  coord_flip()
+```
+
+## Who are the strictest referees?
+There are two ways of measuring how strict a referee is: one is by the number of fouls they call and the other is by the number of cards they give out. For today, we'll use the number of fouls they give.
+
+### Most number of fouls given
+Looking at the total number of fouls given over the whole season, Tierney seems to be the strictest referee (583 fouls) with Pawson a close second (576 fouls). Given that the top 7 most used referees officiated at least 5 more games than the rest of the group, you may reasonably expect these 7 to call the most number of fouls. However, this is not the case. Atkinson is the 8th most trigger happy ref and is squeezed out by Coote, who officiated 20 matches. This indicates that, on average, he calls more fouls per game than Atkinson.
+```{r}
+fouls <- data |>
+  group_by(Referee) |>
+  summarise(across(c(HF, AF), sum)) |>
+  mutate("Total Fouls" = HF + AF)
+```
+```{r}
+ggplot(fouls) +
+  geom_col(aes(reorder(Referee, `Total Fouls`), `Total Fouls`), fill = "#401454") +
+  theme_classic() +
+  xlab("Referee") +
+  coord_flip()
+```
+
+```{r message=FALSE}
+# function to create a dataframe for a referee with home fouls, away fouls and total fouls
+fouls_by_ref <- function(ref_name){
+  data |>
+    filter(Referee == ref_name) |>
+    select(c("Referee", "HF", "AF")) |>
+    mutate(TF = HF + AF)
+}
+
+# create dataframe to join all the data to
+refs_fouls_breakdown <- fouls_by_ref("M Atkinson")
+
+# vector with all the ref names except Atkinson
+ref_names <- referee_count |>
+  filter(Referee != "M Atkinson")
+ref_names <- unique(ref_names$Referee)
+
+# use a loop to create dataframe with all the fouls data by ref
+for (i in ref_names) {
+  df <- fouls_by_ref(i)
+  refs_fouls_breakdown <- refs_fouls_breakdown |>
+    full_join(df)
+}
+```
+
+Exploring the distribution of fouls given by each referee further, we see that only two referees have a higher median number of fouls given per game than Coote; further indicating that he calls a high number of fouls per game than other refs.
+```{r}
+refs_fouls_breakdown_longer <- pivot_longer(refs_fouls_breakdown, 
+                                            cols = c("HF", "AF", "TF"),
+                                            names_to = "Foul Type",
+                                            values_to = "Foul Count")
+
+ggplot(refs_fouls_breakdown_longer |>
+         filter(`Foul Type` == "TF")) +
+  geom_boxplot(aes(Referee, `Foul Count`), colour = "#401454") +
+  ylab("Total Fouls") +
+  theme_classic() +
+  coord_flip()
+```
+
+
+### Fouls Per Game
+A better measure for the strictest referee in terms of fouls given would be a fouls to game ratio that tells us how the average number of fouls each referee calls per game.
+
+After calculating the ratio, we actually see that Coote calls the highest number of fouls per game of all the referees (23.80) while Atkinson calls the fewest (15.62). In fact, he calls at least 2.3 fouls fewer than any other referee so perhaps players can get away with more in matches he is refereeing.
+```{r message=FALSE}
+fouls_to_games <- fouls |>
+  left_join(referee_count) |>
+  mutate("F to G Ratio" = round(`Total Fouls`/`Matches Officiated`, 2))
+```
+```{r}
+ggplot(fouls_to_games) +
+  geom_col(aes(reorder(Referee, `F to G Ratio`), `F to G Ratio`), fill = "#401454") +
+  theme_classic() +
+  xlab("Referee") +
+  ylab("Fouls to Game Ratio") +
+  coord_flip()
+```
+
+But maybe players shouldn't go too far in trying to take advantage of Atkinson's low fouls to game ratio because it is not statistically smaller than that of Moss, who has the second lowest fouls to game ratio.
+```{r}
+atkinson <- fouls_by_ref("M Atkinson")
+
+moss <- fouls_by_ref("J Moss")
+
+t.test(atkinson$TF, moss$TF)
+```
+
+### Are Refs Stricter Against The Away Side?
+With home sides having the home advantage, which supposedly could include the influence of a favourable crowd on the referee, do away teams concede more fouls and are some referees more easily swayed?
+
+We can first visualise this by calculating an away side fouls to home side fouls and plotting it with a reference line at 1, indicating that a referee calls an equal number of fouls against each team.
+
+Here, we see that at least 8 referees give more fouls against the away side than the home side (Harrington is the worst offender here) and at least 8 go the other way calling more fouls against the home side than they do the away side (and Madley is the worst offender here). So, overall, there doesn't seem to be much of a home advantage when it comes to the home team conceding fewer fouls but there is when we look at referees on an individual level.
+```{r}
+fouls_to_games <- fouls_to_games |>
+  mutate("AF to HF" = round(AF/HF, 2))
+```
+```{r}
+ggplot(fouls_to_games) +
+  geom_col(aes(`AF to HF`, Referee), fill = "#401454") +
+  geom_vline(xintercept = 1, colour = "#d6c740") +
+  theme_classic()
+```
+
+Another way to explore this data is with boxplots to see if there is much discrepancy between the number of fouls given against the away side compared to the home side. As we saw in the bar charts, there are some referees who do call more fouls against the away side than the home side (e.g. Harrington)m there are some who go the other way (e.g. Gillett) and a few who call an even number for and against both teams (e.g. Dean).
+
+It is also noticeable that the some referees are very consistent in how many fouls they give against a home or away side. For example, Salisbury tends to call more fouls against home teams compared to away teams and he very consistently does so. In a similar vein, Harrington consistently gives more fouls against the away team than the home team. On the other hand, foul counts for Brooks and Bankes against the home team varies wildly. In Brooks case, he's only officiated 4 matches so this huge variation is likely due to a small sample. Bankes, however, refereed 12 matches in the season, which is on the lower side but is perhaps large enough to suggest he is not consistent in how he officiates against the home team. Alternatively, he could have been involved in games where home sides have been highly disciplined or highly ill-disciplined.
+```{r}
+ggplot(refs_fouls_breakdown_longer |>
+         filter(`Foul Type` != "TF")) +
+  geom_boxplot(aes(`Foul Count`, Referee, fill = `Foul Type`)) +
+  theme_classic()
+```

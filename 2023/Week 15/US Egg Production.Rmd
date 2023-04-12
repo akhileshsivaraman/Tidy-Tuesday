@@ -1,0 +1,120 @@
+---
+title: "US Egg Production"
+output: 
+  html_document:
+    theme: paper
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, include = TRUE, message = FALSE)
+```
+
+Acknowledgement: the data for this Tidy Tuesday comes from Samara Mendez (https://samaramendez.github.io/)
+
+```{r}
+#---- load libraries ----
+library(tidyverse)
+library(lubridate)
+
+#---- load data ----
+eggproduction  <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-04-11/egg-production.csv')
+cagefreepercentages <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-04-11/cage-free-percentages.csv')
+
+```
+
+## Percentage of cage-free hens
+```{r}
+ggplot(cagefreepercentages) +
+  geom_point(aes(observed_month, percent_hens), alpha = 0.4, size = 2, colour = "#822e31") +
+  geom_smooth(aes(observed_month, percent_hens), se = FALSE, colour = "#822e31", linewidth = 0.4, span = 0.5) +
+  theme(panel.grid = element_blank(),
+        plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        text = element_text(colour = "#1c090f"),
+        axis.text = element_text(colour = "#1c090f"),
+        axis.line = element_line(colour = "#561c25"),
+        axis.ticks = element_line(colour = "#561c25")) +
+  scale_x_date(date_breaks = "2 years") +
+  xlab("Month") +
+  ylab("Percentage of cage-free hens")
+```
+
+## Percentage of cage-free eggs
+```{r}
+ggplot(cagefreepercentages |>
+         filter(percent_eggs != is.na(percent_eggs))) +
+  geom_point(aes(observed_month, percent_eggs), alpha = 0.4, size = 2, colour = "#F0EAD6") +
+  geom_smooth(aes(observed_month, percent_eggs), se = FALSE, colour = "#F0EAD6", linewidth = 0.4, span = 0.5) +
+  theme(panel.grid = element_blank(),
+        plot.background = element_rect(fill = "#555257"),
+        panel.background = element_rect(fill = "#555257"),
+        text = element_text(colour = "#F0EAD6"),
+        axis.text = element_text(colour = "#F0EAD6"),
+        axis.line = element_line(colour = "#F0EAD6"),
+        axis.ticks = element_line(colour = "#F0EAD6")) +
+  scale_x_date(date_breaks = "6 months") +
+  xlab("Month") +
+  ylab("Percentage of cage-free eggs")
+
+```
+
+## Cage-free: organic vs non-organic
+```{r}
+#---- query for data of interest ----
+org_nonorg <- eggproduction |>
+  filter(grepl("cage-free", prod_process)) |>
+  select(c(observed_month,
+           prod_process,
+           n_hens,
+           n_eggs))
+org_nonorg$prod_process[org_nonorg$prod_process == "cage-free (non-organic)"] <- "non-organic"
+org_nonorg$prod_process[org_nonorg$prod_process == "cage-free (organic)"] <- "organic"
+
+
+#---- plots ----
+# change scipen to avoid scientific notation
+options(scipen = 99)
+
+# hens
+ggplot(org_nonorg) +
+  geom_point(aes(observed_month, n_hens, colour = prod_process), alpha = 0.4, size = 2) +
+    geom_smooth(aes(observed_month, n_hens, colour = prod_process), se = FALSE, linewidth = 0.4, span = 0.5) +
+  theme(panel.grid = element_blank(),
+        plot.background = element_rect(fill = "white"),
+        panel.background = element_rect(fill = "white"),
+        text = element_text(colour = "#1c090f"),
+        axis.text = element_text(colour = "#1c090f"),
+        axis.line = element_line(colour = "#561c25"),
+        axis.ticks = element_line(colour = "#561c25"),
+        legend.text = element_text(colour = "#1c090f"),
+        legend.title = element_text(colour = "#1c090f"),
+        legend.key = element_rect(fill = "white")) +
+  scale_x_date(date_breaks = "1 year") +
+  xlab("Year") +
+  ylab("Cage-free hens") +
+  scale_color_manual(values = c("#77445f", "#a35d67"),
+                     name = "Production\nprocess")
+
+# eggs
+ggplot(org_nonorg) +
+  geom_point(aes(observed_month, n_hens, colour = prod_process), alpha = 0.4, size = 2) +
+  geom_smooth(aes(observed_month, n_hens, colour = prod_process), se = FALSE, linewidth = 0.4, span = 0.5) +
+  theme(panel.grid = element_blank(),
+        plot.background = element_rect(fill = "#555257"),
+        panel.background = element_rect(fill = "#555257"),
+        text = element_text(colour = "#F0EAD6"),
+        axis.text = element_text(colour = "#F0EAD6"),
+        axis.line = element_line(colour = "#F0EAD6"),
+        axis.ticks = element_line(colour = "#F0EAD6"),
+        legend.text = element_text(colour = "#F0EAD6"),
+        legend.title = element_text(colour = "#F0EAD6"),
+        legend.key = element_rect(fill = "#555257"),
+        legend.background = element_blank()) +
+  scale_x_date(date_breaks = "1 year") +
+  xlab("Year") +
+  ylab("Percentage of cage-free eggs") +
+  scale_color_manual(values = c("#b4cdc7", "#f7a476"),
+                     name = "Production\nprocess")
+
+```
+

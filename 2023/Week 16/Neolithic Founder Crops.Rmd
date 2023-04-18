@@ -1,0 +1,209 @@
+---
+title: "Neolithic Founder Crops"
+output: 
+  html_document:
+    theme: paper
+---
+
+Acknowledgement: the data for this Tidy Tuesday comes from Joe Roe (https://github.com/joeroe/SWAsiaNeolithicFounderCrops)
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+```{r include=FALSE}
+#---- load libraries ----
+library(tidyverse)
+library(sf)
+library(ggspatial)
+library(ggrepel)
+
+#---- load data ----
+founder_crops <- read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-04-18/founder_crops.csv')
+```
+
+## Founder Crops
+"Founder crops" is used to refer to 8 types of plants that founded early Neolithic agriculture in southwest Asia
+
+The founder crops are:
+
+* Einkorn wheat (cereal)
+* Emmer wheat (cereal)
+* Barley (cereal)
+* Lentil (legume)
+* Pea (legume)
+* Chickpea (legume)
+* Bitter vetch (legume)
+* Flax (oil)
+
+
+Lets see how abundant each one is. We can measure this by species richness and the number of samples obtained at various archaeological sites.
+```{r fig.cap="Number of different species found for each founder crop"}
+founder_species_richness <- founder_crops |>
+  drop_na(founder_crop) |> 
+  count(founder_crop, name = "Species richness")
+
+ggplot(founder_species_richness) +
+  geom_col(aes(founder_crop, `Species richness`), fill = "#F5DEB3") +
+  theme_classic() +
+  xlab("Founder crop") +
+  scale_x_discrete(labels = function(`Founder crop`) str_wrap(`Founder crop`, width = 6))
+```
+
+```{r fig.cap="Species sample count of each founder crop"}
+founder_sample_count <- founder_crops |>
+  drop_na(founder_crop) |>
+  count(founder_crop, wt = n, name = "Species sample count")
+
+ggplot(founder_sample_count) +
+  geom_col(aes(founder_crop, `Species sample count`), fill = "#DCC7B0") +
+  theme_classic() +
+  scale_x_discrete(labels = function(`founder_crop`) str_wrap(`founder_crop`, width = 6)) +
+  xlab("Founder crop")
+```
+Barley is the most species rich of the founder crops with over 300 different species found at the sites but its species were not as abundant as those of the lentil. In total, there were over 1 million samples of a lentil species found at archaeological sites! This suggests that lentils were very important to early agricultural groups. Alternatively, this huge disparity between lentils and everything else in the species sample count could indicate that lentils simply preserve better than the other crops.
+
+Not all the crop samples taken from the sites were from the Neolithic period so we can investigate how abundance of the founders has changed over time. Here, we measure this by using species richness in the pre-Neolithic, Neolithic and post-Neolithic ages.
+```{r}
+# function to determine in which archaeological age the sample is from
+# the Neolithic age was from 9700 - 4500
+# so Pre-Neolithic is anything before 9700 and Post-Neolithic is anything after 4500
+archaeo_period <- function(x) {
+  
+  if (founder_crops[x,]$age_start > 9700){
+    "Pre-Neolithic"
+  } else if (founder_crops[x,]$age_end < 4500){
+    "Post-Neolithic"
+  } else {
+    "Neolithic"
+  }
+  
+}
+
+
+# add archaeological age to the data
+founder_crops$archaeological_age <- NA
+
+for (i in 1:nrow(founder_crops)) {
+  x <- archaeo_period(i)
+  founder_crops$archaeological_age[i] <- x
+}
+
+
+# species richness by archaeological age
+founder_period_count <- founder_crops |>
+  drop_na(founder_crop) |>
+  group_by(founder_crop) |>
+  count(archaeological_age, name = "Species richness")
+
+ggplot(founder_period_count |>
+         arrange("Species richness") |>
+         mutate(archaeological_age = factor(archaeological_age, levels = c("Pre-Neolithic", "Neolithic", "Post-Neolithic")))) +
+  geom_col(aes(founder_crop, `Species richness`, fill = archaeological_age), position = "dodge") +
+  theme_classic() +
+  scale_x_discrete(labels = function(`founder_crop`) str_wrap(`founder_crop`, width = 6)) +
+  xlab("Founder crop") +
+  scale_fill_manual(values = c("#E5F4E3", "#5DA9E9", "#003F91"),
+                    name = "Archaeological age")
+```
+In the pre-Neolithic period, we see that barley was the most abundant founder crop followed by the lentil then in the Neolithic period, it looks like the other cereals became more abundant perhaps a sign that Neolithic societies increasingly relied on wheat and barley.
+
+Lets see how this looks on a map. When we plot all the data together, it is difficult to see any patterns.
+```{r}
+world <- rnaturalearth::ne_countries(scale = "medium", returnclass = "sf")
+
+sites <- distinct(founder_crops, source_site_name, .keep_all = T) |>
+  slice_sample(n = 6) # sample 6 random sites to plot their names on the map
+
+
+ggplot(world) +
+  geom_sf(fill = "white") +
+  geom_jitter(data = founder_crops |> drop_na(founder_crop), 
+                     aes(longitude, latitude, colour = founder_crop, shape = archaeological_age), alpha = 0.2, size = 3) +
+  coord_sf(xlim = c(min(founder_crops$longitude - 1),
+                    max(founder_crops$longitude + 1)),
+           ylim = c(min(founder_crops$latitude - 1),
+                    max(founder_crops$latitude + 1))) +
+  geom_text_repel(data = sites,
+                   aes(longitude, latitude, label = source_site_name), 
+                   size = 3, box.padding = 2) +
+  theme(panel.background = element_rect(fill = "#c9e8fe"),
+        plot.background = element_rect(fill = "white"),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        legend.key = element_blank()) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1)))
+```
+```{r}
+# Pre-Neolithic
+ggplot(world) +
+  geom_sf(fill = "white") +
+  geom_jitter(data = founder_crops |> 
+               drop_na(founder_crop) |>
+               filter(archaeological_age == "Pre-Neolithic"), 
+                     aes(longitude, latitude, colour = founder_crop), alpha = 0.2, size = 3) +
+  coord_sf(xlim = c(min(founder_crops$longitude - 1),
+                    max(founder_crops$longitude + 1)),
+           ylim = c(min(founder_crops$latitude - 1),
+                    max(founder_crops$latitude + 1))) +
+  geom_text_repel(data = sites,
+                   aes(longitude, latitude, label = source_site_name), 
+                   size = 3, box.padding = 2) +
+  theme(panel.background = element_rect(fill = "#c9e8fe"),
+        plot.background = element_rect(fill = "white"),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        legend.key = element_blank()) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  ggtitle("Pre-Neolithic")
+
+
+# Neolithic
+ggplot(world) +
+  geom_sf(fill = "white") +
+  geom_jitter(data = founder_crops |> 
+               drop_na(founder_crop) |>
+               filter(archaeological_age == "Neolithic"), 
+                     aes(longitude, latitude, colour = founder_crop), alpha = 0.2, size = 3) +
+  coord_sf(xlim = c(min(founder_crops$longitude - 1),
+                    max(founder_crops$longitude + 1)),
+           ylim = c(min(founder_crops$latitude - 1),
+                    max(founder_crops$latitude + 1))) +
+  geom_text_repel(data = sites,
+                   aes(longitude, latitude, label = source_site_name), 
+                   size = 3, box.padding = 2) +
+  theme(panel.background = element_rect(fill = "#c9e8fe"),
+        plot.background = element_rect(fill = "white"),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        legend.key = element_blank()) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  ggtitle("Neolithic")
+
+
+# Post-Neolithic
+ggplot(world) +
+  geom_sf(fill = "white") +
+  geom_jitter(data = founder_crops |> 
+               drop_na(founder_crop) |>
+               filter(archaeological_age == "Post-Neolithic"), 
+                     aes(longitude, latitude, colour = founder_crop), alpha = 0.2, size = 3) +
+  coord_sf(xlim = c(min(founder_crops$longitude - 1),
+                    max(founder_crops$longitude + 1)),
+           ylim = c(min(founder_crops$latitude - 1),
+                    max(founder_crops$latitude + 1))) +
+  geom_text_repel(data = sites,
+                   aes(longitude, latitude, label = source_site_name), 
+                   size = 3, box.padding = 2) +
+  theme(panel.background = element_rect(fill = "#c9e8fe"),
+        plot.background = element_rect(fill = "white"),
+        axis.line = element_blank(),
+        axis.ticks = element_blank(),
+        legend.key = element_blank()) +
+  guides(colour = guide_legend(override.aes = list(alpha = 1))) +
+  ggtitle("Post-Neolithic")
+```
+
+But once we separate the data by period, we can see patterns illustrated in the species richness by archaeological age plot above; mainly that cereals (barley and wheat) are more prevalent in the Neolithic compared to the period that preceded and followed it. Within the Neolithic period itself, there is a lot of diversity and it is more spread out (although this could be due to the sampling).
+
+In the post-Neolithic, while we see very little flax and lentil compared to the other two, we see a few locations where chickpeas have been densely sampled.

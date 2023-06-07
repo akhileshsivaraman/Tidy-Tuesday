@@ -18,14 +18,7 @@ library(shiny)
 owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-06-06/owid-energy.csv')
 ```
 
-questions:
-- changes in global energy consumption
-- how has renewables generation changed (as a percentage and watts)? comparison to fossil fuels?
-- how has renewables consumption changed? comparison to fossil fuels?
-- UK trends by energy source (write function to do this for every country/region and make an app)
-Renewables is the sum of energy from hydropower, wind, solar, geothermal, wave and tidal, and bioenergy
-
-
+Acknowledgement: the data for this Tidy Tuesday comes from Our World in Data (https://github.com/owid/energy-data)
 ```{r include=FALSE}
 #---- annual percentage change in primary energy consumption ----
 # global

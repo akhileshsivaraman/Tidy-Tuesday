@@ -1,0 +1,226 @@
+---
+title: "Energy"
+output: html_document
+runtime: shiny
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+```{r include=FALSE}
+#---- libraries ----
+library(tidyverse)
+library(shiny)
+
+
+#---- data ----
+owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascience/tidytuesday/master/data/2023/2023-06-06/owid-energy.csv')
+```
+
+questions:
+- changes in global energy consumption
+- how has renewables generation changed (as a percentage and watts)? comparison to fossil fuels?
+- how has renewables consumption changed? comparison to fossil fuels?
+- UK trends by energy source (write function to do this for every country/region and make an app)
+Renewables is the sum of energy from hydropower, wind, solar, geothermal, wave and tidal, and bioenergy
+
+
+```{r include=FALSE}
+#---- annual percentage change in primary energy consumption ----
+# global
+world_energy_cons_change_pct <- owid_energy |>
+  filter(country == "World") |>
+  select(country, year, energy_cons_change_pct) |>
+  drop_na(energy_cons_change_pct)
+
+ggplot(world_energy_cons_change_pct) +
+  geom_path(aes(year, energy_cons_change_pct)) +
+  theme_classic() +
+  xlab("Year") +
+  ylab("Annual percentage change in primary energy consumption")
+
+
+# UK
+UK_energy_cons_change_pct <- owid_energy |>
+  filter(country == "United Kingdom") |>
+  select(country, year, energy_cons_change_pct) |>
+  drop_na(energy_cons_change_pct)
+
+ggplot(UK_energy_cons_change_pct) +
+  geom_path(aes(year, energy_cons_change_pct)) +
+  theme_classic() +
+  xlab("Year") +
+  ylab("Annual percentage change in primary energy consumption")
+```
+
+## How has overall energy consumption changed around the world?
+Select a country or region below to see its annual percentage change in energy consumption.
+```{r include=FALSE}
+# function to visualise the annual percentage change in primary energy consumption of a region
+annual_pct_change_energy_consumption <- function(region_name) {
+  x <- owid_energy |>
+    filter(country == region_name) |>
+    select(country, year, energy_cons_change_pct) |>
+    drop_na(energy_cons_change_pct)
+  
+  y <- ggplot(x) +
+    geom_path(aes(year, energy_cons_change_pct)) +
+    theme_classic() +
+    xlab("Year") +
+    ylab("%") +
+    ggtitle(paste("Annual percentage change in primary energy consumption of", region_name))
+  
+  return(y)
+}
+
+
+regions <- unique(owid_energy[["country"]])
+```
+```{r echo=FALSE}
+# user selects region of interest
+selectInput("region_of_interest_1",
+            label = "Select a region",
+            choices = regions,
+            selected = "World",
+            selectize = T)
+
+# plot annual percentage change of the region of interest
+renderPlot({
+  annual_pct_change_energy_consumption(as.character(input$region_of_interest_1))
+})
+```
+
+## How has energy consumption changed by source?
+### Fossil fuels vs Renewables
+#### Percentage share
+Select a country or region of interest to view energy consumption as a percentage share of its source
+*Note: if there is no data available for a region, an empty graph will be displayed*
+```{r include=FALSE}
+# by percentage share
+UK_sources_consumption_pct_share <- owid_energy |>
+  filter(country == "United Kingdom") |>
+  select(year,
+         ends_with("share_energy"))
+UK_sources_consumption_pct_share <- filter(UK_sources_consumption_pct_share,
+                                           rowSums(is.na(UK_sources_consumption_pct_share[2:14])) != ncol(UK_sources_consumption_pct_share[2:14])) |>
+  pivot_longer(cols = 2:14,
+               names_to = "energy_source",
+               values_to = "percentage_share")
+
+ggplot(UK_sources_consumption_pct_share |>
+         filter(energy_source == "fossil_share_energy" | energy_source == "renewables_share_energy")) +
+  geom_path(aes(year, percentage_share, colour = energy_source)) +
+  theme_classic() +
+  xlab("Year") +
+  ylab("Percentage share of total energy consumption") +
+  ggtitle("United Kingdom: Fossil Fuels vs Renewables") +
+  scale_colour_manual(values = c("#F28C28", "#097969"),
+                      labels = c("Fossil fuels", "Renewables")) +
+  theme(legend.position = "top",
+        legend.title = element_blank())
+
+
+# by per capita consumption
+UK_sources_consumption_per_capita <- owid_energy |>
+  filter(country == "United Kingdom") |>
+  select(year,
+         ends_with("energy_per_capita")) |>
+  drop_na() |>
+  pivot_longer(cols = 2:12,
+               names_to = "energy_source",
+               values_to = "per_capita_consumption")
+
+ggplot(UK_sources_consumption_per_capita |>
+         filter(energy_source == "fossil_energy_per_capita" | energy_source == "renewables_energy_per_capita")) +
+  geom_path(aes(year, per_capita_consumption, colour = energy_source)) +
+  theme_classic() +
+  xlab("Year") +
+  ylab("Per capita consumption (kWh)") +
+    ggtitle("United Kingdom: Fossil Fuels vs Renewables") +
+  scale_colour_manual(values = c("#F28C28", "#097969"),
+                      labels = c("Fossil fuels", "Renewables")) +
+  theme(legend.position = "top",
+        legend.title = element_blank())
+```
+```{r include=FALSE}
+# function to visualise percentage share of renewables and fossils
+overall_consumption_pct_share <- function(region_name){
+  x <- owid_energy |>
+  filter(country == region_name) |>
+  select(year,
+         ends_with("share_energy"))
+  
+  x <- filter(x, rowSums(is.na(x[2:14])) != ncol(x[2:14])) |>
+  pivot_longer(cols = 2:14,
+               names_to = "energy_source",
+               values_to = "percentage_share")
+
+  y <- ggplot(x |>
+         filter(energy_source == "fossil_share_energy" | energy_source == "renewables_share_energy")) +
+  geom_path(aes(year, percentage_share, colour = energy_source)) +
+  theme_classic() +
+  xlab("Year") +
+  ylab("% share of total energy consumption") +
+  ggtitle(paste0(region_name, ": Fossil Fuels vs Renewables")) +
+  scale_colour_manual(values = c("#F28C28", "#097969"),
+                      labels = c("Fossil fuels", "Renewables")) +
+  theme(legend.position = "top",
+        legend.title = element_blank())
+  
+  return(y)
+}
+
+# function to visualise per capita consumption of renewables and fossils
+overall_per_capita_consumption <- function(region_name){
+  x <- owid_energy |>
+  filter(country == region_name) |>
+  select(year,
+         ends_with("energy_per_capita"))
+  
+  x <- filter(x, rowSums(is.na(x[2:12])) != ncol(x[2:12])) |>
+    pivot_longer(cols = 2:12,
+               names_to = "energy_source",
+               values_to = "per_capita_consumption")
+  
+  y <- ggplot(x |>
+         filter(energy_source == "fossil_energy_per_capita" | energy_source == "renewables_energy_per_capita")) +
+  geom_path(aes(year, per_capita_consumption, colour = energy_source)) +
+  theme_classic() +
+  xlab("Year") +
+  ylab("Per capita consumption (kWh)") +
+  ggtitle(paste0(region_name, ": Fossil Fuels vs Renewables")) +
+  scale_colour_manual(values = c("#F28C28", "#097969"),
+                      labels = c("Fossil fuels", "Renewables")) +
+  theme(legend.position = "top",
+        legend.title = element_blank())
+  
+  return(y)
+}
+```
+```{r}
+selectInput("region_of_interest_2",
+            label = "Select a region",
+            choices = regions,
+            selected = "World",
+            selectize = T)
+renderPlot({
+  overall_consumption_pct_share(as.character(input$region_of_interest_2))
+})
+```
+
+#### Per capita consumption
+Select a country or region of interest to view energy consumption per capita by source
+*Note: Exercise caution when comparing countries as the y-axis varies by region. If there is no data available for a region, an empty graph will be displayed.*
+```{r}
+selectInput("region_of_interest_3",
+            label = "Select a region",
+            choices = regions,
+            selected = "World",
+            selectize = T)
+renderPlot({
+  overall_per_capita_consumption(as.character(input$region_of_interest_3))
+})
+
+```
+

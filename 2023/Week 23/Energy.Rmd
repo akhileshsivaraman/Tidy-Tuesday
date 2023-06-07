@@ -19,7 +19,9 @@ owid_energy <- readr::read_csv('https://raw.githubusercontent.com/rfordatascienc
 ```
 
 Acknowledgement: the data for this Tidy Tuesday comes from Our World in Data (https://github.com/owid/energy-data)
-```{r include=FALSE}
+
+## How is energy consumption around the world changing?
+```{r}
 #---- annual percentage change in primary energy consumption ----
 # global
 world_energy_cons_change_pct <- owid_energy |>
@@ -31,24 +33,36 @@ ggplot(world_energy_cons_change_pct) +
   geom_path(aes(year, energy_cons_change_pct)) +
   theme_classic() +
   xlab("Year") +
-  ylab("Annual percentage change in primary energy consumption")
-
-
-# UK
-UK_energy_cons_change_pct <- owid_energy |>
-  filter(country == "United Kingdom") |>
-  select(country, year, energy_cons_change_pct) |>
-  drop_na(energy_cons_change_pct)
-
-ggplot(UK_energy_cons_change_pct) +
-  geom_path(aes(year, energy_cons_change_pct)) +
-  theme_classic() +
-  xlab("Year") +
-  ylab("Annual percentage change in primary energy consumption")
+  ylab("Percentage change") +
+  ggtitle("Annual percentage change in primary energy consumption across the world")
 ```
 
-## How has overall energy consumption changed around the world?
-Select a country or region below to see its annual percentage change in energy consumption.
+The top 5 consumers of energy produced by fossil fuels in 2021 were:
+```{r echo=TRUE, include=TRUE}
+top_consumers <- owid_energy |>
+  filter(year == 2021) |>
+  arrange(desc(fossil_fuel_consumption)) |>
+  drop_na(iso_code) |>
+  pull(country)
+top_consumers[1:5]
+```
+But per capita, the top 5 consumers of energy produced by fossil fuels in 2021 were:
+```{r echo=TRUE, include=TRUE}
+top_consumers_capita <- owid_energy |>
+  filter(year == 2021) |>
+  arrange(desc(fossil_energy_per_capita)) |>
+  drop_na(iso_code) |>
+  pull(country)
+top_consumers_capita[1:5]
+```
+
+Using the tools below, we can firstly observe how energy consumption in these 10 countries has changed every year then we can examine how quickly they are adopting renewable sources of energy to meet their demands and how consumption of renewables compares to that of fossil fuels.
+
+The tools here aren't just limited to the 10 countries listed above. It can be used for any country and even regions.
+
+\
+
+**Select a country or region below to see its annual percentage change in energy consumption.**
 ```{r include=FALSE}
 # function to visualise the annual percentage change in primary energy consumption of a region
 annual_pct_change_energy_consumption <- function(region_name) {
@@ -84,10 +98,9 @@ renderPlot({
 })
 ```
 
-## How has energy consumption changed by source?
-### Fossil fuels vs Renewables
-#### Percentage share
-Select a country or region of interest to view energy consumption as a percentage share of its source
+\
+
+**Select a country or region of interest to view energy consumption as a percentage share of its source**\
 *Note: if there is no data available for a region, an empty graph will be displayed*
 ```{r include=FALSE}
 # by percentage share
@@ -202,9 +215,10 @@ renderPlot({
 })
 ```
 
-#### Per capita consumption
-Select a country or region of interest to view energy consumption per capita by source
-*Note: Exercise caution when comparing countries as the y-axis varies by region. If there is no data available for a region, an empty graph will be displayed.*
+\
+
+**Select a country or region of interest to view energy consumption per capita by source**\
+*Note: when comparing countries double check the values on the y-axis as it varies by region. If there is no data available for a region, an empty graph will be displayed.*
 ```{r}
 selectInput("region_of_interest_3",
             label = "Select a region",

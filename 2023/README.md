@@ -29,3 +29,9 @@ Week 16 Preview
 <img align="centre" src="Week 16/Week 16 graph.png" width="500">
 <br>
 <hr>
+
+Week 23 Preview
+<br>
+<img align="centre" src="Week 23/Week 23 graph.png" width="500">
+<br>
+<hr>
